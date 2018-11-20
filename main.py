@@ -10,6 +10,7 @@ robot_state = []
 diamond_state = []
 diamond_goal = []
 bool = True
+max_depth = 150
 
 class Node(object):
     def __init__(self, value):
@@ -25,28 +26,23 @@ class Tree(object):
     def __init__(self, data):
         self.root = Node(data)
         self.listofmaps = []
+        self.depth = 0
 
     def precorder_call(self):
-        return self.preorder_create(self.root, "", self.listofmaps)
+        return self.preorder_create(self.root, "", self.listofmaps, self.depth)
 
 
     def move_robot(self, data, vert, hori):
         this_map = data[0]
         rob_pos = data[1]
-        #print "The robot start position is ", rob_pos, "ak: ", rob_pos[0], rob_pos[1]
-        #print "Inspect the map: "
-        #self.print_map(this_map)
-        #print "Looking at the map 'M' = ", this_map[rob_pos[0]][rob_pos[1]]
         dia_pos = data[2]
         data_out = []
         next_pos = [rob_pos[0]+vert, rob_pos[1]+hori]
+
         ## Check if the next position is an wall
-
-
         if this_map[next_pos[0]][next_pos[1]] == 'X' :
             data_out = [this_map, rob_pos, dia_pos]
             data_out.append(False)
-            #print "The next_pos = 'X' - FALSE"
             return data_out;
 
         ## Checking if the next position is a free spot
@@ -58,7 +54,6 @@ class Tree(object):
                 rob_pos = next_pos
                 data_out = [this_map, rob_pos, dia_pos]
                 data_out.append(True)
-                #print "The next_pos = '.' and current is = 'M' -> SWITCH POSITION- TRUE"
                 return data_out;
             ## If not the robot check if it is a diamound
             elif this_map[rob_pos[0]][rob_pos[1]] == 'J':
@@ -69,7 +64,6 @@ class Tree(object):
                 this_map[rob_pos[0]][rob_pos[1]], this_map[next_pos[0]][next_pos[1]] = this_map[next_pos[0]][next_pos[1]], this_map[rob_pos[0]][rob_pos[1]]
                 data_out = [this_map, rob_pos, dia_pos]
                 data_out.append(True)
-                #print "The next_pos = '.' and current is = 'J' -> SWITCH POSITION - TRUE"
                 return data_out;
         ## If the next position is a diamond
         if this_map[next_pos[0]][next_pos[1]] == 'J' :
@@ -77,7 +71,6 @@ class Tree(object):
             if this_map[rob_pos[0]][rob_pos[1]] == 'J' :
                 data_out = [this_map, rob_pos, dia_pos]
                 data_out.append(False)
-                #print "The next_pos = 'J' and current is = 'J' -> CANT MORE - FALSE"
                 return data_out;
             ## Check what is on the other side of diamond
             data_out = [this_map, next_pos, dia_pos]
@@ -98,90 +91,70 @@ class Tree(object):
         data_out.append(True)
         return data_out;
 
-    def preorder_create(self, start, move, listofmaps):
+    def preorder_create(self, start, move, listofmaps, depth):
         global bool
-        if start and bool:
+        global max_depth
+        depth += 1
+
+        if depth < max_depth and start and bool:
             illegal_move = move
             current_data = start.value
+            self.print_map(current_data[0])
+
+            if(self.goal_reached(current_data[2], diamond_goal)) :
+                bool = False;
+                return True;
 
             list_of_maps = listofmaps
 
+            # Checking if a diamond is stuck in a corner or along a side
             for j in range(0, len(current_data[2])):
-                if self.stuck_in_corner(current_data[0], current_data[2][j]) :
+                if self.stuck_in_corner(current_data[0], current_data[2][j]) or self.stuck_along_side(current_data[0], current_data[2][j]) or self.blocking_each_other(current_data[0], current_data[2][j]) :
                     return True;
 
+            # Checking if one of the parent nodes has the same map a parent
             for i in range(0, len(list_of_maps)):
                 if self.compare_maps(current_data[0], list_of_maps[i]):
-        #            print "LOOP AVOIDED!"
-        #            print "LOOP AVOIDED!"
-        #            print "LOOP AVOIDED!"
-
+                    print "Old map"
                     return True;
 
             list_of_maps.append(current_data[0])
 
-
-            if(self.goal_reached(copy.deepcopy(current_data[2]), diamond_goal)) :
-                bool = False;
-                return True;
-
-        #    print "\n\n\nNew layer reached!"
-            self.print_map(current_data[0])
-
             # MOVE LEFT
-        #    print "Trying to move left and create new NODE!"
             left_data = self.move_robot(copy.deepcopy(current_data), 0, -1)
-
             if left_data[3] and not illegal_move == "LEFT":
                 start.left = Node(left_data[0:3])
-        #        print "Succes in moving left!"
-                self.print_map(left_data[0])
-        #    else:
-        #        print "Could NOT move left"
+                #self.print_map(left_data[0])
+
 
             # Moving right
-        #    print "Trying to move right and create new NODE!"
             right_data = self.move_robot(copy.deepcopy(current_data), 0, 1)
-
             if right_data[3] and not illegal_move == "RIGHT" :
-        #        print "Succes in moving right!"
                 start.right = Node(right_data[0:3])
-                self.print_map(right_data[0])
-        #    else:
-        #        print "Could NOT move right"
+                #self.print_map(right_data[0])
+
 
 
             # Moving up
-        #    print "Trying to move up and create new NODE!"
             up_data = self.move_robot(copy.deepcopy(current_data), -1, 0)
             if up_data[3] and not illegal_move == "UP" :
-        #        print "Succes in moving up!"
                 start.up = Node(up_data[0:3])
-                self.print_map(up_data[0])
-        #    else:
-        #        print "Could NOT move up"
+                #self.print_map(up_data[0])
+
 
             # Moving down
-        #    print "Trying to move down and create new NODE!"
             down_data = self.move_robot(copy.deepcopy(current_data), 1, 0)
-
             if down_data[3] and not illegal_move == "DOWN":
-        #        print "Succes in moving down!"
                 start.down = Node(down_data[0:3])
-                self.print_map(down_data[0])
-        #    else:
-        #        print "Could NOT move down"
+                #self.print_map(down_data[0])
 
 
-            time.sleep(0.01)
-        #    print "RIGHT LAYER!"
-            self.preorder_create(start.right, "LEFT", list_of_maps)
-        #    print "LEFT LATER!"
-            self.preorder_create(start.left, "RIGHT", list_of_maps)
-        #    print "UP LAYER"
-            self.preorder_create(start.up, "DOWN", list_of_maps)
-        #    print "DOWN LAYER"
-            self.preorder_create(start.down, "UP", list_of_maps)
+
+        #    time.sleep(0.1)
+            self.preorder_create(start.right, "LEFT", list_of_maps, depth)
+            self.preorder_create(start.left, "RIGHT", list_of_maps, depth)
+            self.preorder_create(start.up, "DOWN", list_of_maps, depth)
+            self.preorder_create(start.down, "UP", list_of_maps, depth)
         return True;
 
 
@@ -209,28 +182,57 @@ class Tree(object):
                 return False;
 
         if map[dia_position[0]-1][dia_position[1]] == 'X' and map[dia_position[0]][dia_position[1]-1] == 'X':
+            print "Stuck in top left corner"
             return True;
         if map[dia_position[0]][dia_position[1]-1] == 'X' and map[dia_position[0]+1][dia_position[1]] == 'X' :
+            print "Stuck in button left corner!"
             return True;
         if map[dia_position[0]+1][dia_position[1]] == 'X' and map[dia_position[0]][dia_position[1]+1] == 'X' :
+            print "Stuck in button right corner!"
             return True;
         if map[dia_position[0]][dia_position[1]+1] == 'X' and map[dia_position[0]-1][dia_position[1]] == 'X' :
+            print "Stuck in top left corner!"
             return True;
         return False;
+
+    def blocking_each_other(self, map, dia_pos):
+        #If another diamond to the left then:
+        if map[dia_pos[0]][dia_pos[1]-1] == 'J':
+            # If the two above are both = 'X'
+            if  map[dia_pos[0]-1][dia_pos[1]-1] == 'X' and map[dia_pos[0]-1][dia_pos[1]] == 'X' :
+                return True;
+            # If the two below are both = 'X'
+            if  map[dia_pos[0]+1][dia_pos[1]-1] == 'X' and map[dia_pos[0]+1][dia_pos[1]] == 'X' :
+                return True;
+
+        # If another diamond is above the other
+        if map[dia_pos[0]-1][dia_pos[1]] == 'J':
+            # If the two to the left are both = 'X'
+            if  map[dia_pos[0]-1][dia_pos[1]-1] == 'X' and map[dia_pos[0]][dia_pos[1]-1] == 'X' :
+                return True;
+            # If the two to the right both = 'X'
+            if  map[dia_pos[0]-1][dia_pos[1]+1] == 'X' and map[dia_pos[0]][dia_pos[1]+1] == 'X' :
+                return True;
+
+        return False;
+
+
 
     def stuck_along_side(self, map, dia_pos):
         global diamond_goal
         next_pos = 'X'
         index = 0
         counter = 0
-
+        # Checking if stuck along top side
         if map[dia_pos[0]-1][dia_pos[1]] == 'X' :
+            index = 0
             while next_pos == 'X' :
                 index +=1
                 next_pos = map[dia_pos[0]-1][dia_pos[1]+index]
                 if map[dia_pos[0]][dia_pos[1]+index] == 'X':
                     counter +=1
                     break;
+            index = 0
             while next_pos == 'X' :
                 index -=1
                 next_pos = map[dia_pos[0]-1][dia_pos[1]+index]
@@ -240,12 +242,66 @@ class Tree(object):
             if counter == 2 :
                 return True;
 
-
-        if map[dia_pos[0]][dia_pos[1]-1] == 'X' :
-
+        # Checking if stuck along button side
         if map[dia_pos[0]+1][dia_pos[1]] == 'X' :
+            index = 0
+            while next_pos == 'X' :
+                index +=1
+                next_pos = map[dia_pos[0]+1][dia_pos[1]+index]
+                if map[dia_pos[0]][dia_pos[1]+index] == 'X':
+                    counter +=1
+                    break;
+            index = 0
+            while next_pos == 'X' :
+                index -=1
+                next_pos = map[dia_pos[0]+1][dia_pos[1]+index]
+                if map[dia_pos[0]][dia_pos[1]+index] == 'X':
+                    counter +=1
+                    break;
+            if counter == 2 :
+                return True;
 
+        # Checking if stuck along left side
+        if map[dia_pos[0]][dia_pos[1]-1] == 'X' :
+            index = 0
+            while next_pos == 'X' :
+                index +=1
+                next_pos = map[dia_pos[0]+index][dia_pos[1]-1]
+                if map[dia_pos[0]+index][dia_pos[1]] == 'X':
+                    counter +=1
+                    break;
+            index = 0
+            while next_pos == 'X' :
+                index -=1
+                next_pos = map[dia_pos[0]+index][dia_pos[1]-1]
+                if map[dia_pos[0]+index][dia_pos[1]] == 'X':
+                    counter +=1
+                    break;
+            if counter == 2 :
+                print "LEFT SIDE"
+                return True;
+
+        # Checking if stuck along right side
         if map[dia_pos[0]][dia_pos[1]+1] == 'X' :
+            index = 0
+            while next_pos == 'X' :
+                index +=1
+                next_pos = map[dia_pos[0]+index][dia_pos[1]+1]
+                if map[dia_pos[0]+index][dia_pos[1]] == 'X':
+                    counter +=1
+                    break;
+            index = 0
+            while next_pos == 'X' :
+                index -=1
+                next_pos = map[dia_pos[0]+index][dia_pos[1]+1]
+                if map[dia_pos[0]+index][dia_pos[1]] == 'X':
+                    counter +=1
+                    break;
+            if counter == 2 :
+                print "RIGHT SIDE"
+                return True;
+
+        return False;
 
 
     def compare_maps(self, map1, map2) :
